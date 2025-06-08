@@ -1,0 +1,205 @@
+<!-- join_session.html -->
+{% extends "layout.html" %}
+
+{% block title %}
+    Game Page
+{% endblock %}
+
+{% block main %}
+    <div class="container py-5">
+
+        <!-- 🕹️ Game Header -->
+        <div class="text-center mb-4">
+            <h1 class="display-4 fw-bold text-primary">🎮 Game Round {{ round }}</h1>
+            <p class="lead">⏳ One submission only! Your first selection will be locked in.</p>
+        </div>
+
+        <!-- 🔗 Results Link -->
+        <div class="text-center mb-4">
+            <a href="{{ url_for('round_results', session_id=game_session.id, round=round) }}" class="btn btn-outline-primary btn-lg">
+                View Round {{ round }} Results
+            </a>
+        </div>
+
+        <!-- 🧾 Current Sentence -->
+        <div class="card bg-light shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title text-secondary">📜 Current Sentence:</h5>
+                <p class="card-text fs-4 text-dark">{{ sentence }}</p>
+            </div>
+        </div>
+
+        <!-- ⏱️ Timer -->
+        <div class="text-center mb-4">
+            <h4 class="text-danger fw-bold">Time Remaining: <span id="time-left">--</span> seconds</h4>
+        </div>
+
+        <!-- 🔍 GIF Search -->
+        <div class="input-group mb-4">
+            <input type="text" id="search-input" class="form-control form-control-lg" placeholder="Search for GIFs...">
+            <button id="search-btn" class="btn btn-primary btn-lg">Search</button>
+        </div>
+
+        <!-- 🛑 Stop Game (host only) -->
+        {% if game_session.host_id == session.get("user_id") %}
+            <div class="text-center mb-4">
+                <a href="{{ url_for('stop_game', session_id=game_session.id) }}" class="btn btn-danger btn-lg">
+                    <i class="bi bi-stop-circle"></i> Stop Game
+                </a>
+            </div>
+        {% endif %}
+
+        <!-- 🖼️ GIFs Rendered Here -->
+        <div id="gif-container" class="mb-5"></div>
+
+    </div>
+
+
+
+
+    <script>
+        // Ensure the DOM is fully loaded before executing the script
+        document.addEventListener("DOMContentLoaded", function() {
+            let timeLeft = parseInt(localStorage.getItem(`timeLeft_session{{ game_session.id }}_round{{ round }}`)) || {{ game_session.time_per_question }};
+            const timerElement = document.getElementById("time-left");
+
+            function updateTimer() {
+                const timerExpired = localStorage.getItem(`timerExpired_session{{ game_session.id }}_round{{ round }}`) === "true";
+
+                if (timeLeft <= 0 || timerExpired) {
+                    localStorage.setItem(`timerExpired_session{{ game_session.id }}_round{{ round }}`, "true");
+                    localStorage.removeItem(`timeLeft_session{{ game_session.id }}_round{{ round }}`);
+                    // Redirect to the round results page if time expires
+                    window.location.href = `/round-results/{{ game_session.id }}/{{ round }}`;
+                } else {
+                    timerElement.textContent = timeLeft;
+                    timeLeft--;
+                    localStorage.setItem(`timeLeft_session{{ game_session.id }}_round{{ round }}`, timeLeft);
+                }
+            }
+
+            const timerInterval = setInterval(updateTimer, 1000);
+
+            // Function to check if the game has started
+            function checkGameStart() {
+                fetch(`/check-game-start/{{ game_session.id }}`)  // Use the correct variable for the session ID
+                    .then(response => response.json())  // Parse the response as JSON
+                    .then(data => {
+                        if (!data.started) {  // If the game has been stopped
+                            window.location.href = `/waiting-area/{{ game_session.id }}`;  // Redirect to the waiting area page
+                        } else {
+                            setTimeout(checkGameStart, 3000);  // Check again after 3 seconds
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));  // Log any errors
+            }
+
+            function searchGifs(query) {
+                fetch(`/search-gifs?query=${query}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const gifContainer = document.getElementById('gif-container');
+                        gifContainer.innerHTML = '';
+
+                        // Create and append the header
+                        const header = document.createElement('h1');
+                        header.className = 'mb-4 text-center text-primary fw-bold';
+                        header.textContent = `Search Results for "${query}"`;
+                        gifContainer.appendChild(header);
+
+                        // Create and append the form
+                        const form = document.createElement('form');
+                        form.method = 'post';
+                        form.action = '/save-gif/{{ game_session.id }}/{{ round }}';
+                        gifContainer.appendChild(form);
+
+                        // Create a responsive GIF grid using Bootstrap
+                        const container = document.createElement('div');
+                        container.className = 'row g-4 justify-content-center'; // ⬅️ Bootstrap grid layout
+                        form.appendChild(container);
+
+                        // Create and append each GIF card
+                        data.gifs.forEach((gif, index) => {
+                            const col = document.createElement('div');
+                            col.className = 'col-md-4 col-sm-6'; // ⬅️ Responsive columns
+
+                            const card = document.createElement('div');
+                            card.className = 'card shadow-sm border-0'; // ⬅️ Modern card design
+                            card.style.overflow = 'hidden';
+                            card.style.height = '100%';
+                            card.style.textAlign = 'center';
+
+                            const img = document.createElement('img');
+                            img.src = gif.images.fixed_height.url;
+                            img.alt = gif.title;
+                            img.className = 'card-img-top'; // ⬅️ Bootstrap image styling
+                            card.appendChild(img);
+
+                            const cardBody = document.createElement('div');
+                            cardBody.className = 'card-body';
+
+                            const input = document.createElement('input');
+                            input.type = 'radio';
+                            input.className = 'form-check-input me-2'; // ⬅️ Bootstrap radio style
+                            input.id = `gif${index + 1}`;
+                            input.name = 'selected_gif';
+                            input.value = gif.images.fixed_height.url;
+
+                            const label = document.createElement('label');
+                            label.htmlFor = `gif${index + 1}`;
+                            label.className = 'form-check-label';
+                            label.textContent = 'Select';
+
+                            const radioWrapper = document.createElement('div');
+                            radioWrapper.className = 'form-check d-flex justify-content-center align-items-center';
+                            radioWrapper.appendChild(input);
+                            radioWrapper.appendChild(label);
+
+                            cardBody.appendChild(radioWrapper);
+                            card.appendChild(cardBody);
+                            col.appendChild(card);
+                            container.appendChild(col);
+                        });
+
+                        // Create and append the submit button
+                        const submitDiv = document.createElement('div');
+                        submitDiv.className = 'text-center mt-4';
+
+                        const submitButton = document.createElement('button');
+                        submitButton.type = 'submit';
+                        submitButton.className = 'btn btn-success btn-lg px-5'; // ⬅️ Styled submit button
+                        submitButton.textContent = 'Submit';
+                        submitDiv.appendChild(submitButton);
+
+                        form.appendChild(submitDiv);
+
+                    })
+                    .catch(error => {
+                        console.error('Error fetching GIFs:', error);
+                        alert('There was an error fetching the GIFs. Please try again later.');
+                    });
+            }
+
+            document.getElementById('search-btn').addEventListener('click', () => {
+                const query = document.getElementById('search-input').value.trim();
+                if (!query) {
+                    alert('Please enter a search term.');
+                    return;
+                }
+                searchGifs(query);
+            });
+
+            // ⌨️ Enter key triggers search (newly added)
+            document.getElementById('search-input').addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Prevent form submission or page reload
+                    document.getElementById('search-btn').click(); // Trigger the click event
+                }
+            });
+
+            checkGameStart();  // Initial call to the function
+        });
+    </script>
+{% endblock %}
+
+

@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Join Session
+{% endblock %}
+
+{% block main %}
+    <div class="container-fluid">
+        <div class="mb-4 px-4">
+            <h1 class="mb-3 text-center">Join a Session</h1>
+
+            {% if sessions %}
+                <div class="row g-4 justify-content-center">
+                    {% for game_session in sessions %}
+                    <div class="col-12 col-md-6 col-lg-5 d-flex">
+                        <div class="card text-start shadow-sm bg-dark text-white w-100 h-100 d-flex flex-column">
+                            <div class="card-body d-flex flex-column justify-content-between" id="session-{{ game_session.id }}">
+                                <h5 class="card-title">Session ID: {{ game_session.id }}</h5>
+                                <p class="card-text">Category: {{ game_session.category }}</p>
+                                <p>Host: {{ game_session.host_username }}</p>
+                                <p id="player-count-{{ game_session.id }}">Number of Players: {{ game_session.user_count }}/{{ game_session.players }}</p>
+                                <!-- Add more session details as needed -->
+                                <div class="mt-auto pt-3 d-flex flex-column gap-2">
+                                    <a href="{{ url_for('session_details', session_id=game_session.id) }}" class="btn btn-primary w-100 text-center">Join Session</a>
+                                    {% if game_session.user_in %}
+                                        {% if game_session.host_id == session.get("user_id") %}
+                                            <a href="{{ url_for('leave_session', session_id=game_session.id) }}" class="btn btn-danger w-100 text-center">Delete Session</a>
+                                        {% else %}
+                                            <a href="{{ url_for('leave_session', session_id=game_session.id) }}" class="btn btn-warning w-100 text-center">Leave Session</a>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="mt-2 text-center">No active sessions available.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            function checkSessionChanges() {
+                const sessions = {{ sessions | tojson | safe }}; // Get session data from the template context
+
+                sessions.forEach(session => {
+                    fetch(`/check-session-from-join/${session.id}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.new_change) {
+                                // Debugging
+                                console.log(`Change detected in session ${session.id}`);
+
+                                // Find the session element and update it
+                                //const sessionElement = document.getElementById(`session-${session.id}`);
+
+                                // Update the number of players
+                                //const playerCountElement = document.getElementById(`player-count-${session.id}`);
+                                //playerCountElement.textContent = `Number of Players: ${data.user_count}/${session.players}`;
+
+                                // Reload the page to show changes
+                                location.reload();
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+
+                setTimeout(checkSessionChanges, 3000);  // Check again after 3 seconds
+            }
+
+            function checkNumberOfSessions() {
+                fetch('/check-number-of-sessions')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.new_change) {
+                            // Debugging
+                            console.log(`Number of sessions changed: ${data.session_count}`);
+
+                            // Reload the page to show changes
+                            location.reload();
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+
+                setTimeout(checkNumberOfSessions, 3000);  // Check again after 3 seconds
+            }
+
+            checkSessionChanges();  // Initial call to the function
+            checkNumberOfSessions();  // Initial call to the function
+        });
+    </script>
+
+
+{% endblock %}

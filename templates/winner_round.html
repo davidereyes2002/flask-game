@@ -1,0 +1,109 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Winner of Round {{ round }}
+{% endblock %}
+
+{% block main %}
+    <div class="container py-5">
+        <!-- Winner(s) Header -->
+        <div class="text-center mb-5">
+            <h1 class="text-success fw-bold">Winner{% if round_results|length > 1 %}s{% endif %} of Round {{ round }}</h1>
+            {% if number_of_votes == game_session.players %}
+                {% for round_result in round_results %}
+                    <h2 class="text-primary">{{ round_result.username }}</h2>
+                    <p class="lead">with <strong>{{ round_result.vote_count }}</strong> vote{{ round_result.vote_count > 1 and 's' or '' }}</p>
+                {% endfor %}
+            {% else %}
+                <p class="mt-2">Waiting for all players to vote...</p>
+            {% endif %}
+        </div>
+
+        <!-- Host-only: Next Round Button -->
+        {% if game_session.host_id == session.get("user_id") %}
+            <div class="text-center mb-4">
+                <form action="{{ url_for('start_next_round', session_id=game_session.id, round=round) }}" method="post">
+                    <button type="submit" class="btn btn-lg btn-warning shadow-sm">Start Next Round</button>
+                </form>
+            </div>
+        {% endif %}
+
+        <!-- Scoreboard Table -->
+        <div class="card shadow border-0">
+            <div class="card-header bg-primary text-white text-center">
+                <h3 class="mb-0">Scoreboard</h3>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover text-center mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Username</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for score in scores %}
+                            <tr>
+                                <td>{{ score.username }}</td>
+                                <td>{{ score.score }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            function checkScoreTable() {
+                fetch(`/check-score-table/{{ game_session.id }}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.new_score_change) {
+                            // Reload the page to show changes
+                            location.reload();
+                        } else {
+                            console.log("No change detected.");
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+
+                setTimeout(checkScoreTable, 3000);  // Check again after 3 seconds
+            }
+
+            function checkNextRound() {
+                fetch(`/check-next-round/{{ game_session.id }}/{{ round }}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.next_round_started) {
+                            // Redirect all users to the next round page
+                            window.location.href = "{{ url_for('game_page', session_id=game_session.id, round=(round+1)) }}";
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+
+                setTimeout(checkNextRound, 3000);  // Check again after 3 seconds
+            }
+
+            function checkWinnerGame() {
+                fetch(`/check-winner-game/{{ game_session.id }}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.player_has_won) {
+                            // Redirect all users to the next round page
+                            window.location.href = "{{ url_for('winner_game', session_id=game_session.id) }}";
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+
+                setTimeout(checkWinnerGame, 3000);  // Check again after 3 seconds
+            }
+
+            checkWinnerGame();
+            checkNextRound();
+            checkScoreTable();
+        });
+    </script>
+{% endblock %}

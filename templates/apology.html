@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Apology
+{% endblock %}
+
+{% block main %}
+<div class="container mt-5">
+    <div class="d-flex flex-column align-items-center">
+        <!-- Meme image -->
+        <img
+            alt="{{ top }}"
+            title="{{ top }}"
+            src="https://api.memegen.link/images/custom/{{ top | urlencode }}/{{ bottom | urlencode }}.jpg?background=https://i.imgur.com/CsCgN7Ll.png&width=600"
+            class="img-fluid rounded border mb-4"
+            style="max-width: 60%; height: auto;"
+        >
+
+        <!-- Back button -->
+        <a href="/" class="btn btn-primary btn-lg">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Home
+{% endblock %}
+
+{% block main %}
+    <div class="container">
+
+        <div class="mb-5 text-start">
+            <h2 class="fw-light">Welcome, <span class="fw-bold">{{ username }}</span>!</h2>
+            <a href="{{ url_for('join_session') }}" class="btn btn-outline-info mt-3">Join a Session</a>
+        </div>
+
+        <div class="mb-4">
+            <h1 class="mb-3">My Active Session</h1>
+
+            {% if game_session and game_session.active %}
+                <div class="card text-start shadow-sm bg-dark text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Session ID: {{ game_session.id }}</h5>
+                        <p class="card-text">Category: {{ game_session.category }}</p>
+                        {% if game_session.host_id == session.get("user_id") %}
+                            <p class="text-success">You are the <strong>Host</strong></p>
+                        {% else %}
+                            <p>Host: {{ game_session.host_username }}</p>
+                        {% endif %}
+                        <p id="player-count-{{ game_session.id }}">Players: {{ game_session.user_count }}/{{ game_session.players }}</p>
+
+                        <div class="mt-3 d-flex gap-3">
+                            <a href="{{ url_for('session_details', session_id=game_session.id) }}" class="btn btn-primary">Enter Session</a>
+                            {% if game_session.user_in %}
+                                {% if game_session.host_id == session.get("user_id") %}
+                                    <a href="{{ url_for('leave_session', session_id=game_session.id) }}" class="btn btn-danger">Delete Session</a>
+                                {% else %}
+                                    <a href="{{ url_for('leave_session', session_id=game_session.id) }}" class="btn btn-warning">Leave Session</a>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <p class="mt-2">No active sessions available.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if game_session and game_session.id %}
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                function checkSessionChanges() {
+                    fetch(`/check-session-from-homepage/{{ game_session.id }}`)
+                        .then(response => {
+                            if (!response.ok) throw new Error("Session fetch failed");
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (!data.session_active) {
+                                console.log("Session is inactive. Stopping polling.");
+                                return;
+                            }
+
+                            if (data.new_change) {
+                                console.log(`Change detected in session {{ game_session.id }}`);
+                                location.reload();
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+
+                    setTimeout(checkSessionChanges, 3000); // Re-check every 3 seconds
+                }
+
+                checkSessionChanges();
+            });
+        </script>
+    {% endif %}
+{% endblock %}

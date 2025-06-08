@@ -1,0 +1,111 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Session Details
+{% endblock %}
+
+{% block main %}
+<div class="container py-5">
+    <!-- 👑 Host Header -->
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-gradient">👑 You're the Host</h1>
+        <p class="text-light fs-5">You control when the game starts.</p>
+    </div>
+
+    <div class="row g-4">
+        <!-- 🎮 Game Session Details -->
+        <div class="col-md-6">
+            <div class="card bg-dark text-white shadow border-light h-100">
+                <div class="card-body">
+                    <h3 class="card-title mb-3 fw-semibold">Game Session Details</h3>
+                    <p><strong>Session ID:</strong> {{ game_session.id }}</p>
+                    <p><strong>Category:</strong> {{ game_session.category }}</p>
+                    <p><strong>Players Required:</strong> {{ game_session.players }}</p>
+                    <p><strong>Time per Question:</strong> {{ game_session.time_per_question }} seconds</p>
+                    <p><strong>Points to Win:</strong> {{ game_session.points_to_win }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 👥 Players Joined -->
+        <div class="col-md-6">
+            <div class="card bg-dark text-white shadow border-light h-100">
+                <div class="card-body">
+                    <h4 class="card-title fw-semibold">Players Joined</h4>
+                    <ul id="user-list" class="list-group list-group-flush mt-3">
+                        {% for user in users %}
+                            <li class="list-group-item bg-dark text-white border-white">{{ user.username }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🕹️ Host Controls -->
+    <div id="start-button-container" class="d-flex flex-column align-items-center gap-3 mt-5">
+        {% if users|length == game_session.players %}
+            <form action="{{ url_for('start_game', session_id=game_session.id) }}" method="post">
+                <button type="submit" class="btn btn-success btn-lg px-4">
+                    <i class="bi bi-play-fill"></i> Start Game
+                </button>
+            </form>
+        {% else %}
+            <p class="text-warning fs-5 mb-0 text-center">
+                ⚠️ Waiting for all players to join ({{ users|length }}/{{ game_session.players }})
+            </p>
+        {% endif %}
+
+        {% if users|length == 1 %}
+            <a href="{{ url_for('leave_session', session_id=game_session.id) }}" class="btn btn-danger">
+                <i class="bi bi-trash-fill"></i> Delete Session
+            </a>
+        {% endif %}
+
+        <!-- 🔙 Back Button -->
+        <a href="{{ url_for('join_session') }}" class="btn btn-outline-light">
+            <i class="bi bi-arrow-left"></i> Back to All Sessions
+        </a>
+    </div>
+</div>
+
+<script>
+    function clearSessionLocalStorage(session_id) {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (
+                key.startsWith(`timeLeft_session${session_id}_`) ||
+                key.startsWith(`timerExpired_session${session_id}_`)
+            ) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+
+    const sessionId = {{ game_session.id | tojson }};
+    clearSessionLocalStorage(sessionId);
+
+    document.addEventListener("DOMContentLoaded", function () {
+        function checkSessionChanges() {
+            fetch(`/check-session-from-join/${sessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // 🔄 Just reload the page if there's a change
+                    if (data.new_change) {
+                        window.location.reload();
+                    } else {
+                        setTimeout(checkSessionChanges, 3000); // Poll again in 3s
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching session changes:', error);
+                    setTimeout(checkSessionChanges, 5000); // Retry slower on error
+                });
+        }
+
+        checkSessionChanges(); // Initial poll
+    });
+</script>
+{% endblock %}

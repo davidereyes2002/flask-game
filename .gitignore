@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Flask session or logs
+flask_session/
+
+# Environments
+venv/
+openai-env/
+
+# Sensitive
+.env
+
+# Leftovers and unused
+leftovers/

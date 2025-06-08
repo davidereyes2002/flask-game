@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Waiting Area
+{% endblock %}
+
+{% block main %}
+    <div class="container mt-5">
+
+        <!-- Waiting Area Info -->
+        <div class="card bg-dark text-white shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="card-title">Waiting Area for Session</h2>
+                <p><strong>Session ID:</strong> {{ game_session.id }}</p>
+                <p><strong>Category:</strong> {{ game_session.category }}</p>
+                <p id='player-count-{{ game_session.id }}'>
+                    <strong>Players:</strong> {{ user_count }}/{{ game_session.players }}
+                </p>
+                <p><strong>Time per Question:</strong> {{ game_session.time_per_question }} seconds</p>
+                <p><strong>Points to Win:</strong> {{ game_session.points_to_win }}</p>
+            </div>
+        </div>
+
+        <!-- Player List -->
+        <div class="card bg-dark text-white shadow-sm mb-4">
+            <div class="card-body">
+                <h4 class="card-title">Players Joined</h4>
+                <ul class="list-group list-group-flush">
+                    {% for user in users %}
+                        <li class="list-group-item bg-dark text-white border-white">
+                            {{ user.username }}{% if user.is_host %} <em>(Host)</em>{% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap mb-5">
+            <a href="{{ url_for('leave_session', session_id=game_session.id) }}" class="btn btn-danger">
+                Leave Session
+            </a>
+            <a href="{{ url_for('join_session') }}" class="btn btn-primary">
+                Back to Sessions
+            </a>
+        </div>
+
+    </div>
+
+
+    <script>
+        function clearSessionLocalStorage(session_id) {
+            // Iterate over localStorage and remove items matching the session_id pattern
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(`timeLeft_session${session_id}_`) || key.startsWith(`timerExpired_session${session_id}_`)) {
+                    localStorage.removeItem(key);
+                }
+            }
+        }
+
+        const SessionId = {{ game_session.id }}
+        clearSessionLocalStorage(SessionId);
+        
+        // Ensure the DOM is fully loaded before executing the script
+        document.addEventListener("DOMContentLoaded", function() {
+            // Function to check if the game has started
+            function checkGameStarted() {
+                fetch(`/check-game-start/{{ game_session.id }}`)  // Use the correct variable for the session ID
+                    .then(response => response.json())  // Parse the response as JSON
+                    .then(data => {
+                        if (data.started) {  // If the game has started
+                            window.location.href = `/game-page/{{ game_session.id }}/1`;  // Redirect to the game page
+                        } else {
+                            setTimeout(checkGameStarted, 3000);  // Check again after 3 seconds
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));  // Log any errors
+            }
+
+
+            function checkSessionChanges() {
+                fetch(`/check-session-from-waiting/{{ game_session.id }}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.new_change) {
+                            // Debugging
+                            console.log(`Change detected in session {{ game_session.id }}`);
+
+                            // Reload the page to show changes
+                            location.reload();
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+
+                setTimeout(checkSessionChanges, 3000);  // Check again after 3 seconds
+            }
+
+            checkSessionChanges();  // Initial call to the function
+            checkGameStarted();  // Initial call to the function
+        });
+    </script>
+{% endblock %}

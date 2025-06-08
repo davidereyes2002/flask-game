@@ -1,0 +1,17 @@
+<!-- join_session.html -->
+{% extends "layout.html" %}
+
+{% block title %}
+    Start Game
+{% endblock %}
+
+{% block main %}
+    <h1>Generated Statements</h1>
+    <ul>
+        {% for sentence in sentences %}
+            <li>{{ sentence }}</li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+
+

@@ -1,0 +1,142 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Round {{ round }}: Results
+{% endblock %}
+
+{% block main %}
+    <div class="container py-5">
+        <!-- Round Header -->
+        <div class="text-center mb-4">
+            <h1 class="fw-bold text-primary">Round {{ round }} Results</h1>
+            <div id="timer" class="fs-5 text-danger mt-2">
+                ⏱ Time Remaining: <span id="time-left" class="fw-bold"></span> seconds
+            </div>
+            <p class="mt-2">⚠️ Only your <strong>first GIF selection</strong> will be shown!</p>
+        </div>
+
+        <!-- Host Only Controls -->
+        {% if game_session.host_id == session.get("user_id") %}
+            <div class="text-center mb-4">
+                <a href="{{ url_for('stop_game', session_id=game_session.id) }}" class="btn btn-outline-danger">⏹ Stop Game</a>
+            </div>
+        {% endif %}
+
+        <!-- GIF Voting Section -->
+        <form id="voteForm" method="post" action="/input-vote/{{ session_id }}/{{ round }}">
+            <div class="row g-4 justify-content-center">
+                {% for gif in gifs %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm border-0">
+                            <div class="card-body text-center">
+                                <h5 class="card-title text-info">GIF by {{ gif['username'] }}</h5>
+                                <img src="{{ gif['gif_url'] }}" alt="Selected GIF" class="img-fluid rounded mb-3">
+                                {% if (gif.id != session.get("user_id") and not gif.is_n) or (gif.id == there_is_only_one_valid_gif.valid_user_id_gif and there_is_only_one_valid_gif.bool) or (there_are_no_valid_gifs) %}
+                                    <div class="form-check d-flex justify-content-center">
+                                        <input type="radio" class="form-check-input me-2" id="gif{{ loop.index }}" value="{{ gif['id'] }}" name="vote_for_gif">
+                                        <label for="gif{{ loop.index }}" class="form-check-label">Vote for this GIF</label>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if game_session.players == gifs | length %}
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-success btn-lg px-4">Submit Vote</button>
+                </div>
+            {% endif %}
+        </form>
+
+        <!-- Button to redirect user if they didn't submit GIF -->
+        <div id="selectGifContainer" class="text-center mt-4"></div>
+    </div>
+
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let timeLeft = parseInt(localStorage.getItem(`timeLeft_session{{ game_session.id }}_round{{ round }}`)) || {{ game_session.time_per_question }};
+        const timerElement = document.getElementById("time-left");
+        const timerExpired = localStorage.getItem(`timerExpired_session{{ game_session.id }}_round{{ round }}`) === "true";
+
+        async function submitGif() {
+            try {
+                const response = await fetch(`/save-gif/{{ game_session.id }}/{{ round }}`, {
+                    method: 'POST',
+                    body: new FormData().append('selected_gif', '')
+                });
+                if (!response.ok) throw new Error("Failed to submit GIF.");
+            } catch (error) {
+                console.error("Error submitting GIF selection:", error);
+            }
+        }
+
+        if (timerExpired) {
+            submitGif();
+            document.getElementById('timer').innerHTML = '';
+        } else {
+            const timerInterval = setInterval(() => {
+                if (timeLeft <= 0) {
+                    localStorage.removeItem(`timeLeft_session{{ game_session.id }}_round{{ round }}`);
+                    clearInterval(timerInterval);
+                    localStorage.setItem(`timerExpired_session{{ game_session.id }}_round{{ round }}`, "true");
+                    document.getElementById('timer').innerHTML = '';
+                } else {
+                    timerElement.textContent = timeLeft;
+                    timeLeft--;
+                    localStorage.setItem(`timeLeft_session{{ game_session.id }}_round{{ round }}`, timeLeft);
+                }
+            }, 1000);
+        }
+
+        function checkChanges() {
+            fetch(`/check-round/{{ session_id }}/{{ round }}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.new_change) location.reload();
+                    else setTimeout(checkChanges, 3000);
+                })
+                .catch(err => console.error("Check change error:", err));
+        }
+
+        function checkUserGif() {
+            fetch(`/check-user-gif/{{ session_id }}/{{ round }}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.user_has_gif) {
+                        const container = document.getElementById("selectGifContainer");
+                        container.innerHTML = `
+                            <form method="get" action="/game-page/{{ session_id }}/{{ round }}">
+                                <button type="submit" class="btn btn-outline-primary btn-lg">🎬 Select your GIF</button>
+                            </form>
+                        `;
+                    } else {
+                        localStorage.removeItem(`timeLeft_session{{ game_session.id }}_round{{ round }}`);
+                        document.getElementById('timer').innerHTML = '';
+                        localStorage.setItem(`timerExpired_session{{ game_session.id }}_round{{ round }}`, "true");
+                    }
+                })
+                .catch(err => console.error("Check user GIF error:", err));
+
+            setTimeout(checkUserGif, 3000);
+        }
+
+        function checkGameStart() {
+            fetch(`/check-game-start/{{ game_session.id }}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.started) window.location.href = `/waiting-area/{{ game_session.id }}`;
+                    else setTimeout(checkGameStart, 3000);
+                })
+                .catch(err => console.error("Check game start error:", err));
+        }
+
+        checkUserGif();
+        checkChanges();
+        checkGameStart();
+    });
+</script>
+
+{% endblock %}

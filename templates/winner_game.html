@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Endgame
+{% endblock %}
+
+{% block main %}
+    <div class="container py-5">
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold text-primary">🎉 Winner{{ winners|length > 1 and 's' or '' }} of Game Session #{{ game_session.id }} 🎉</h1>
+            {% for winner in winners %}
+                <h2 class="text-success">{{ winner.username }} <small class="mt-2">({{ winner.score }} points)</small></h2>
+            {% endfor %}
+            <p class="lead mt-3 text-secondary">👏 Congratulations to the winner{{ winners|length > 1 and 's' or '' }}!</p>
+        </div>
+
+        <br>
+
+        <div class="mb-4">
+            <h3 class="text-center fw-semibold">Final Score Table</h3>
+            <div class="table-responsive mt-3">
+                <table class="table table-bordered table-striped table-hover shadow-sm">
+                    <thead class="table-primary">
+                        <tr class="text-center">
+                            <th>Username</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-center">
+                        {% for score in scores %}
+                            <tr>
+                                <td>{{ score.username }}</td>
+                                <td>{{ score.score }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <br>
+
+        <div class="text-center mt-4">
+            {% if session.get("user_id") == game_session.host_id %}
+                <form action="{{ url_for('finish_game', session_id=game_session.id) }}" method="post">
+                    <button type="submit" class="btn btn-danger btn-lg px-5">Finish Game</button>
+                </form>
+            {% else %}
+                <a href="/" class="btn btn-outline-secondary btn-lg px-4">Go Back Home</a>
+            {% endif %}
+        </div>
+    </div>
+
+
+    <script>
+        function clearSessionLocalStorage(session_id) {
+            // Iterate over localStorage and remove items matching the session_id pattern
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(`timeLeft_session${session_id}_`) || key.startsWith(`timerExpired_session${session_id}_`)) {
+                    localStorage.removeItem(key);
+                }
+            }
+        }
+
+        const SessionId = {{ game_session.id }}
+        clearSessionLocalStorage(SessionId);
+    </script>
+{% endblock %}
